@@ -1,6 +1,7 @@
 
 from operator import itemgetter
 from collections import Counter
+import numpy as np 
 
 class ModelVote(object):
 
