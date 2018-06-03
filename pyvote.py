@@ -3,6 +3,42 @@ from operator import itemgetter
 from collections import Counter
 import numpy as np 
 
+class Predictions(object):
+
+    def __init__(self, pred_mat):
+        self.pred_mat = pred_mat
+
+    def tally_votes(self, class_type='binary', top_classes=5, min_votes=1):
+        pred_mat = self.pred_mat
+        pred_mat = pred_mat[:, :, :top_classes, :]
+
+        shp = pred_mat.shape
+        all_votes = pred_mat.reshape(shp[0], -1, shp[-1])
+
+        final_mat = None
+        for k, v in enumerate(all_votes):
+            cnts = np.unique(v[:, 0], return_counts=True)
+            cnts = np.concatenate(cnts, axis=1)
+            cnts = cnts[(-cnts[:, 1]).argsort()]
+
+            votes = cnts[cnts[:, 1] > min_votes][:top_classes, 0]
+
+            if len(votes) < self.top_classes:
+                probs = v[~np.isin(v[:, 0], votes)]
+                probs = probs[(-probs[:, 1]).argsort()]
+
+                need = top_classes - len(votes)
+                probs = np.unique(probs[:, 0])[:need]
+                votes = np.concatenate((votes, probs))
+
+            votes = votes.reshape(1, -1)
+            if final_mat is None:
+                final_mat = votes
+            else:
+                final_mat = np.concatenate((final_mat, votes))
+
+        return final_mat
+
 class ModelVote(object):
 
     '''
@@ -10,63 +46,36 @@ class ModelVote(object):
     '''
 
 
-    def __init__(self, **kwargs):
+    def __init__(self, models, class_maps=None, datagetter=None):
 
-        self.models = kwargs.get('models')
-        self.data = kwargs.get('data')
-        self.class_type = kwargs.get('class_type', 'binary')
-        self.top_classes = kwargs.get('top_classes', 5)
-        self.class_maps = kwargs.get \
-            ('class_maps')  # if Y predictions for models are not in the same order, pass a class map to ensure correct voting
+        self.models = models
+        self.class_maps = class_maps # if Y predictions for models are not in the same order, pass a class map to ensure correct voting
+        if datagetter is None:
+            datagetter = list(map(itemgetter, range(len(models))))
+        self.datagetter = datagetter 
 
-
-    def make_predictions(self):
+    def make_predictions(self, data):
+        # matrix shape (n_samples, n_models, n_classes, 2)
         res_mat = None
         for i, model in enumerate(self.models):
-            res = model.predict(self.data[i])
+            model_data = self.datagetter[i](data)
+            res = model.predict(model_data)
+
             cats = (-res.argsort()).argsort()
             probs = np.fliplr(np.sort(res, axis=1))
-            cats, probs = map(lambda x: x[:, self.top_classes], (cats, probs))
-            cats, probs = map(lambda x: x.reshape(x.shape[0], 1, -1), (cats, probs))
-            if self.class_maps:
+            cats, probs = map(lambda x: x.reshape(-1, 1, x.shape[1]), (cats, probs))
+
+            if self.class_maps and self.class_maps[i]:
                 for ind, clas in enumerate(self.class_maps[i]):
                     cats[cats == ind] = clas
 
             votes = np.concatenate((cats, probs), axis=1)
             votes = np.transpose(votes, (0, 2, 1))
-
+            votes = votes.reshape(-1, 1, *votes.shape[1:])
 
             if res_mat is None:
                 res_mat = votes
             else:
                 res_mat = np.concatenate((res_mat, votes), axis=1)
 
-        self.res_dict = dict(enumerate(res_mat))
-
-
-    def tally_votes(self):
-        self.final_list = list()
-        for k, v in self.res_dict.items():
-            cnts = Counter([x[0] for x in v])
-            cnts = sorted(cnts.items(), key=lambda x :x[1], reverse=True)
-
-            votes = list()
-            for cnt in cnts:
-                if cnt[1] > 1:
-                    votes.append(cnt[0])
-                if len(votes) == self.top_classes:
-                    break
-
-            if len(votes) < self.top_classes:
-                probs = [x for x in v if x[0] not in votes]
-                probs = sorted(probs, key=lambda tup: tup[1], reverse=True)[0:self. top_classes -len(votes)]
-                votes.extend([x[0] for x in probs])
-            self.final_list.append(votes)
-        return self.final_list
-
-
-
-
-
-
-
+        return Predictions(res_mat)
