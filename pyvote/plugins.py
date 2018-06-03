@@ -19,7 +19,13 @@ class BasePlugin(object):
 	def predict(self, data):
 		return self.model.predict(data)
 
+	def predict_clean(self, data):
+		return self.predict(data)
+
 class SKLearnPlugin(BasePlugin):
 
 	def predict(self, data):
-		return self.model.predict_proba(data)
+		probs = self.model.predict_proba(data)
+		if isinstance(probs, list):
+			probs = np.array(probs)[:, :, 0].T
+		return probs
