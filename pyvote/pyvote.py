@@ -1,7 +1,7 @@
 from operator import itemgetter
 from collections import Counter
 import numpy as np 
-from .plugins import get_plugin
+from .plugins import get_plugin, BasePlugin
 
 class Predictions(object):
 
@@ -57,7 +57,9 @@ class ModelVote(object):
         all_votes = []
         for i, model in enumerate(self.models):
             model_data = self.datagetter[i](data)
-            plugin = get_plugin(model)
+            plugin = model
+            if not isinstance(plugin, BasePlugin):
+                plugin = get_plugin(plugin)
             res = plugin.predict(model_data)
 
             cats = (-res.argsort()).argsort()

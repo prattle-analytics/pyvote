@@ -22,4 +22,4 @@ class BasePlugin(object):
 class SKLearnPlugin(BasePlugin):
 
 	def predict(self, data):
-		return 
+		return self.model.predict_proba(data)
