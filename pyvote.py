@@ -16,7 +16,7 @@ class Predictions(object):
         shp = pred_mat.shape
         all_votes = pred_mat.reshape(shp[0], -1, shp[-1])
 
-        all_votes = []
+        votes_list = []
         for k, v in enumerate(all_votes):
             cnts = np.unique(v[:, 0], return_counts=True)
             cnts = np.concatenate(cnts, axis=1)
@@ -33,9 +33,9 @@ class Predictions(object):
                 votes = np.concatenate((votes, probs))
 
             votes = votes.reshape(1, -1)
-            all_votes.append(votes)
+            votes_list.append(votes)
 
-        return np.concatenate(all_votes)
+        return np.concatenate(votes_list)
 
 class ModelVote(object):
 
