@@ -28,8 +28,13 @@ class ModelVote(object):
             probs = np.fliplr(np.sort(res, axis=1))
             cats, probs = map(lambda x: x[:, self.top_classes], (cats, probs))
             cats, probs = map(lambda x: x.reshape(x.shape[0], 1, -1), (cats, probs))
+            if self.class_maps:
+                for ind, clas in enumerate(self.class_maps[i]):
+                    cats[cats == ind] = clas
+
             votes = np.concatenate((cats, probs), axis=1)
             votes = np.transpose(votes, (0, 2, 1))
+
 
             if res_mat is None:
                 res_mat = votes
