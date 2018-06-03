@@ -22,7 +22,30 @@ class BasePlugin(object):
 	def predict_clean(self, data):
 		return self.predict(data)
 
+	def get_classes(self):
+		raise NotImplementedError
+
+	def sub_cats(self, cats):
+		try:
+			classes = self.get_classes()
+			assert classes is not None
+		except (NotImplementedError, AssertionError):
+			return cats
+		
+		for ind, cat in enumerate(classes):
+			cats[cats == ind] = cat
+		return cats
+
 class SKLearnPlugin(BasePlugin):
+
+	def get_classes(self):
+		if hasattr(self.model, 'n_classes_'):
+			n_classes = self.model.n_classes_
+			if isinstance(n_classes, int):
+				return self.model.classes_
+
+		else:
+			return self.model.classes_
 
 	def predict(self, data):
 		probs = self.model.predict_proba(data)

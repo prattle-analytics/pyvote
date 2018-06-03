@@ -66,6 +66,7 @@ class ModelVote(object):
             probs = np.fliplr(np.sort(res, axis=1))
             cats, probs = map(lambda x: x.reshape(-1, 1, x.shape[1]), (cats, probs))
 
+            cats = plugin.sub_cats(cats)
             if self.class_maps and self.class_maps[i]:
                 for ind, clas in enumerate(self.class_maps[i]):
                     cats[cats == ind] = clas
