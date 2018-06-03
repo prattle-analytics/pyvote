@@ -21,21 +21,22 @@ class ModelVote(object):
 
 
     def make_predictions(self):
-        self.res_dict = dict()
+        res_mat = None
         for i, model in enumerate(self.models):
             res = model.predict(self.data[i])
-            res_list = list()
-            doc_idx = 0
-            for x in res:
-                idx = (-x).argsort()[:self.top_classes]
-                if self.class_maps:
-                    idx = [self.class_maps[i][x] for x in list(idx)]
-                numies = np.flipud(np.sort(x)[-self.top_classes:])
-                if i == 0:
-                    self.res_dict[doc_idx] = list(zip(list(idx), list(numies)))
-                else:
-                    self.res_dict[doc_idx].extend(zip(list(idx), list(numies)))
-                doc_idx += 1
+            cats = (-res.argsort()).argsort()
+            probs = np.fliplr(np.sort(res, axis=1))
+            cats, probs = map(lambda x: x[:, self.top_classes], (cats, probs))
+            cats, probs = map(lambda x: x.reshape(x.shape[0], 1, -1), (cats, probs))
+            votes = np.concatenate((cats, probs), axis=1)
+            votes = np.transpose(votes, (0, 2, 1))
+
+            if res_mat is None:
+                res_mat = votes
+            else:
+                res_mat = np.concatenate((res_mat, votes), axis=1)
+
+        self.res_dict = dict(enumerate(res_mat))
 
 
     def tally_votes(self):
