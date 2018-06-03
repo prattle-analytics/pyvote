@@ -5,8 +5,9 @@ import numpy as np
 
 class Predictions(object):
 
-    def __init__(self, pred_mat):
+    def __init__(self, pred_mat, voter):
         self.pred_mat = pred_mat
+        self.voter = voter
 
     def tally_votes(self, class_type='binary', top_classes=5, min_votes=1):
         pred_mat = self.pred_mat
@@ -15,7 +16,7 @@ class Predictions(object):
         shp = pred_mat.shape
         all_votes = pred_mat.reshape(shp[0], -1, shp[-1])
 
-        final_mat = None
+        all_votes = []
         for k, v in enumerate(all_votes):
             cnts = np.unique(v[:, 0], return_counts=True)
             cnts = np.concatenate(cnts, axis=1)
@@ -32,12 +33,9 @@ class Predictions(object):
                 votes = np.concatenate((votes, probs))
 
             votes = votes.reshape(1, -1)
-            if final_mat is None:
-                final_mat = votes
-            else:
-                final_mat = np.concatenate((final_mat, votes))
+            all_votes.append(votes)
 
-        return final_mat
+        return np.concatenate(all_votes)
 
 class ModelVote(object):
 
@@ -56,7 +54,7 @@ class ModelVote(object):
 
     def make_predictions(self, data):
         # matrix shape (n_samples, n_models, n_classes, 2)
-        res_mat = None
+        all_votes = []
         for i, model in enumerate(self.models):
             model_data = self.datagetter[i](data)
             res = model.predict(model_data)
@@ -73,9 +71,8 @@ class ModelVote(object):
             votes = np.transpose(votes, (0, 2, 1))
             votes = votes.reshape(-1, 1, *votes.shape[1:])
 
-            if res_mat is None:
-                res_mat = votes
-            else:
-                res_mat = np.concatenate((res_mat, votes), axis=1)
+            all_votes.append(votes)
 
-        return Predictions(res_mat)
+        res_mat = np.concatenate(all_votes, axis=1)
+
+        return Predictions(res_mat, self)
