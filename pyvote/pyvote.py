@@ -2,14 +2,16 @@ from operator import itemgetter
 from collections import Counter
 import numpy as np 
 from .plugins import get_plugin, BasePlugin
+from .utils import rowwise_indexed
 
 class Predictions(object):
 
-    def __init__(self, pred_mat, voter):
+    def __init__(self, pred_mat, probs, voter):
         self.pred_mat = pred_mat
+        self.probs = probs
         self.voter = voter
 
-    def tally_votes(self, class_type='binary', top_classes=5, min_votes=1):
+    def tally_votes(self, class_type='binary', top_classes=5, min_votes=1, return_means=False):
         pred_mat = self.pred_mat
         pred_mat = pred_mat[:, :, :top_classes, :]
 
@@ -35,7 +37,16 @@ class Predictions(object):
             votes = votes.reshape(1, -1)
             votes_list.append(votes)
 
-        return np.concatenate(votes_list)
+        avg_prob = self.probs.mean(axis=1)
+
+        votes_mat = np.concatenate(votes_list).astype(int)
+
+        if not return_means:
+            return votes_mat
+
+        avg_prob = self.probs.mean(axis=1)
+        return votes_mat, rowwise_indexed(avg_prob, votes_mat)
+
 
 class ModelVote(object):
 
@@ -55,6 +66,7 @@ class ModelVote(object):
     def make_predictions(self, data):
         # matrix shape (n_samples, n_models, n_classes, 2)
         all_votes = []
+        all_probs = []
         for i, model in enumerate(self.models):
             model_data = self.datagetter[i](data)
             plugin = model
@@ -63,7 +75,7 @@ class ModelVote(object):
             res = plugin.predict(model_data)
 
             cats = (-res).argsort()
-            probs = np.fliplr(np.sort(res, axis=1))
+            probs = rowwise_indexed(res, cats)
             cats, probs = map(lambda x: x.reshape(-1, 1, x.shape[1]), (cats, probs))
 
             cats = plugin.sub_cats(cats)
@@ -75,8 +87,11 @@ class ModelVote(object):
             votes = np.transpose(votes, (0, 2, 1))
             votes = votes.reshape(-1, 1, *votes.shape[1:])
 
+            res = res.reshape(-1, 1, *res.shape[1:])
             all_votes.append(votes)
+            all_probs.append(res)
 
         res_mat = np.concatenate(all_votes, axis=1)
+        probs = np.concatenate(all_probs, axis=1)
 
-        return Predictions(res_mat, self)
+        return Predictions(res_mat, probs, self)
