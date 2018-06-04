@@ -19,6 +19,7 @@ setup(
     author='Prattle Analytics ',
     author_email='support@prattle.co',
     license='public',
+    packages=find_packages(),
     classifiers=[
         'Development Status :: 3 - Alpha',
         'Intended Audience :: Science/Research',
@@ -27,6 +28,5 @@ setup(
         'Programming Language :: Python :: 3.5',
     ],
     keywords='classification, neural nets, voting, ensemble models',
-
-    py_modules=["pyvote"],
+    # py_modules=["pyvote"],
 )
