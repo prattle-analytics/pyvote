@@ -37,8 +37,6 @@ class Predictions(object):
             votes = votes.reshape(1, -1)
             votes_list.append(votes)
 
-        avg_prob = self.probs.mean(axis=1)
-
         votes_mat = np.concatenate(votes_list).astype(int)
 
         if not return_means:
