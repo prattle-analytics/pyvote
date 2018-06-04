@@ -19,7 +19,7 @@ class Predictions(object):
         votes_list = []
         for k, v in enumerate(all_votes):
             cnts = np.unique(v[:, 0], return_counts=True)
-            cnts = np.concatenate(cnts, axis=1)
+            cnts = np.hstack(cnts)
             cnts = cnts[(-cnts[:, 1]).argsort()]
 
             votes = cnts[cnts[:, 1] > min_votes][:top_classes, 0]
