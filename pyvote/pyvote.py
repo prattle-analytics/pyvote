@@ -19,12 +19,12 @@ class Predictions(object):
         votes_list = []
         for k, v in enumerate(all_votes):
             cnts = np.unique(v[:, 0], return_counts=True)
-            cnts = np.hstack(cnts)
+            cnts = np.vstack(cnts).T
             cnts = cnts[(-cnts[:, 1]).argsort()]
 
             votes = cnts[cnts[:, 1] > min_votes][:top_classes, 0]
 
-            if len(votes) < self.top_classes:
+            if len(votes) < top_classes:
                 probs = v[~np.isin(v[:, 0], votes)]
                 probs = probs[(-probs[:, 1]).argsort()]
 
