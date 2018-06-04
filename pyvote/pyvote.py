@@ -62,7 +62,7 @@ class ModelVote(object):
                 plugin = get_plugin(plugin)
             res = plugin.predict(model_data)
 
-            cats = (-res.argsort()).argsort()
+            cats = -(res).argsort()
             probs = np.fliplr(np.sort(res, axis=1))
             cats, probs = map(lambda x: x.reshape(-1, 1, x.shape[1]), (cats, probs))
 
