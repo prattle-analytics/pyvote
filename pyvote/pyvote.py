@@ -1,7 +1,6 @@
 from operator import itemgetter
 from collections import Counter
 import numpy as np 
-import pandas
 from .plugins import get_plugin, BasePlugin
 from .utils import rowwise_indexed, sub_cats
 
@@ -64,7 +63,52 @@ class ModelVote(object):
             datagetter = list(map(itemgetter, range(len(models))))
         self.datagetter = datagetter 
 
-    def make_predictions(self, data):
+    def reconcile_classes(self, convs, probs, fill=None):
+        '''
+        :convs - (n_classes(i),)-shaped label vectors, one per model
+        :probs - (m, n_classes(i))-shaped probability matrices output from models
+        :fill - fill value for missing probabilities when classes do not exactly
+        match acrosse models. If None, classes not present in the output of all models 
+        are dropped
+
+        Returns:
+
+        (cats, idx_convs, full_probs) tuple
+            cats - unified label vector
+            idx_vons - vector of indices in `cats` corresponding to label vectors
+            passed in `convs`, potentially altered to include the same classes as `cats`
+            full_probs - probability matrices for each model, reconciled such that they
+            have `len(cats)` columns
+        '''
+        combine = set().intersection if fill is None else set().union
+        cats = combine(*convs)
+
+        full_convs, full_probs = [], []
+        for conv, prob in zip(convs, probs):
+            isin = np.isin(conv, cats)
+            conv = conv[isin]
+            prob = prob[:, isin]
+
+            extra_cats = np.array(list(cats - set(conv)))
+            n_cats = len(extra_cats)
+
+            if n_cats > 0:
+                conv = np.concatenate((conv, extra_cats))
+                # if extra_cats has elements fill isn't None
+                extra_probs = np.ones((prob.shape[0], n_cats)) * fill
+                prob = np.concatenate((prob, extra_probs), axis=1)
+
+            full_convs.append(conv)
+            full_probs.append(prob)
+
+        cats = np.sort(np.array(cats))
+
+        for conv in full_convs:
+            sub_cats(conv, cats, reverse=True)
+
+        return cats, full_convs, full_probs
+
+    def make_predictions(self, data, fill=None):
         # matrix shape (n_samples, n_models, n_classes, 2)
         all_probs, all_convs = [], []
         for i, model in enumerate(self.models):
@@ -86,25 +130,8 @@ class ModelVote(object):
             all_convs.append(conv)
             all_probs.append(res)
 
-        cats = set().union(*all_convs)
-
-        full_convs, full_probs = [], []
-        for conv, probs in zip(all_convs, all_probs):
-            extra_cats = np.array(list(cats - set(conv)))
-            conv = np.concatenate((conv, extra_cats))
-
-            extra_probs = np.zeros((probs.shape[0], len(extra_cats)))
-            probs = np.concatenate((probs, extra_probs), axis=1)
-
-            full_convs.append(conv)
-            full_probs.append(prob)
-
+        cats, full_convs, full_probs = self.reconcile_classes(all_convs, all_probs, fill=fill)
         del all_convs, all_probs
-
-        cats = np.array(sorted(cats))
-
-        for conv in full_convs:
-            sub_cats(conv, cats, reverse=True)
 
         votes = []
         for conv, probs in zip(full_convs, full_probs):
